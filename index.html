@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BLACKGRID // Neural Defense Grid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- TENSORFLOW.JS & UNIVERSAL SENTENCE ENCODER -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder"></script>
+
+    <style>
+      :root {
+        --blackgrid-bg: #050505;
+        --blackgrid-panel: #0a0a0a;
+        --blackgrid-border: #262626;
+        --blackgrid-accent: #3b82f6;
+        --blackgrid-alert: #ef4444;
+      }
+
+      body {
+        background-color: var(--blackgrid-bg);
+        color: #e5e5e5;
+        font-family: 'Rajdhani', sans-serif;
+        overflow: hidden;
+      }
+      
+      .font-mono {
+        font-family: 'Space Mono', monospace;
+      }
+
+      /* Technical Grid */
+      .ops-grid {
+        background-image: 
+          linear-gradient(to right, #171717 1px, transparent 1px),
+          linear-gradient(to bottom, #171717 1px, transparent 1px);
+        background-size: 60px 60px;
+      }
+
+      /* HUD Borders */
+      .hud-border {
+        border: 1px solid var(--blackgrid-border);
+        position: relative;
+        background: var(--blackgrid-panel);
+      }
+      .hud-border::after {
+        content: '';
+        position: absolute;
+        top: -1px; left: -1px;
+        width: 10px; height: 10px;
+        border-top: 2px solid #525252;
+        border-left: 2px solid #525252;
+      }
+      .hud-border::before {
+        content: '';
+        position: absolute;
+        bottom: -1px; right: -1px;
+        width: 10px; height: 10px;
+        border-bottom: 2px solid #525252;
+        border-right: 2px solid #525252;
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+      
+      .animate-scan {
+        animation: scan 4s linear infinite;
+      }
+      @keyframes scan {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 0% 100%; }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+</head>
+  <body class="ops-grid antialiased selection:bg-blue-500/30">
+    <div id="root" class="h-screen w-full relative flex flex-col"></div>
+  </body>
+</html>

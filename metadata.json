@@ -1,0 +1,5 @@
+{
+  "name": "BlackGrid",
+  "description": "Enterprise-grade Autonomous Agent Defense Grid. Detects and neutralizes rogue MCP (Model Context Protocol) usage and agentic breakouts.",
+  "requestFramePermissions": []
+}
