@@ -21,8 +21,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenSettin
       {/* Header Logo */}
       <div className="h-20 flex items-center px-6 border-b border-[#262626] bg-[#050505]">
         <div className="flex items-center gap-3">
-          <div className="relative w-8 h-8 flex items-center justify-center bg-blue-600 rounded-sm">
-             <Cpu className="text-white" size={18} />
+          <div className="relative w-8 h-8 flex items-center justify-center bg-white border border-[#d4d4d4] rounded-sm">
+             <Cpu className="text-black" size={18} />
           </div>
           <div className="leading-none">
             <h1 className="font-bold text-white tracking-wider text-lg">BLACKGRID</h1>
