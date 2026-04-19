@@ -82,6 +82,38 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
     }
   };
 
+  const handleRunDemo = async () => {
+    if (isLoading || isSimulating) return;
+
+    setIsLoading(true);
+    setResult(null);
+    setSelectedVector('Exploitation');
+
+    const demoLog = `[DEMO_MODE] BLACKGRID QUICK START
+[TARGET] CUSTOMER_SUPPORT_BOT
+[SCENARIO] HYBRID AGENTIC BREAKOUT SIMULATION
+----------------------------------------
+{"timestamp":"${new Date().toISOString()}","level":"INFO","source":"MCP_Gateway","event":"AUTHORIZED_HANDSHAKE","details":{"auth":"OK"}}
+{"timestamp":"${new Date().toISOString()}","level":"ALERT","source":"MCP_Gateway","event":"MCP_TOOL_EXECUTION","latency":"4ms","velocity":"HIGH_FREQUENCY"}
+{"timestamp":"${new Date().toISOString()}","level":"ALERT","source":"MCP_Gateway","event":"MCP_TOOL_EXECUTION","latency":"5ms","velocity":"HIGH_FREQUENCY"}
+{"timestamp":"${new Date().toISOString()}","level":"CRITICAL","source":"AUTH_LAYER","event":"INVALID_MCP_HEADER","details":{"auth_signature":null,"header":"X-MCP-Agent: RedScan-v1"}}
+{"timestamp":"${new Date().toISOString()}","level":"CRITICAL","source":"DAEMON_SOCKET","event":"CONTEXT_OVERFLOW_ATTEMPT","details":{"payload_size":"4MB","status":"TRUNCATED"}}
+`;
+
+    setInput(demoLog);
+
+    try {
+      const analysis = await analyzeThreatLog(demoLog);
+      await new Promise(resolve => setTimeout(resolve, 450));
+      setResult(analysis);
+      onAnalysisComplete(analysis);
+    } catch (e) {
+      console.error("Demo run failed:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleClear = () => {
     setInput('');
     setResult(null);
@@ -106,7 +138,20 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
           </div>
         </div>
 
-        <div className="flex items-center gap-0 bg-[#171717] border border-[#262626]">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRunDemo}
+            disabled={isSimulating || isLoading}
+            className={`px-4 py-4 h-full font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 border border-[#262626] ${
+              isSimulating || isLoading
+                ? 'bg-[#171717] text-[#525252] cursor-not-allowed'
+                : 'bg-emerald-950/25 text-emerald-400 hover:bg-emerald-900/35'
+            }`}
+          >
+            <Play size={14} />
+            Run Demo
+          </button>
+          <div className="flex items-center gap-0 bg-[#171717] border border-[#262626]">
           <div className="px-4 py-2 border-r border-[#262626]">
             <label className="block text-[9px] text-[#737373] uppercase font-bold tracking-widest mb-1">Attack Vector</label>
             <select 
@@ -132,6 +177,7 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
             {isSimulating ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
             Generate Log
           </button>
+          </div>
         </div>
       </div>
 
@@ -163,7 +209,7 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 bg-black text-emerald-500 font-mono text-xs p-4 resize-none outline-none leading-loose placeholder-emerald-900/50"
             spellCheck={false}
-            placeholder={`// SYSTEM READY.\n// TENSORFLOW.JS CLASSIFIER LOADED.\n// CLICK 'GENERATE LOG' TO RUN ATTACK SIMULATION.`}
+            placeholder={`// SYSTEM READY.\n// TENSORFLOW.JS CLASSIFIER LOADED.\n// CLICK 'RUN DEMO' FOR A ONE-CLICK WALKTHROUGH.`}
           />
           <div className="p-2 bg-[#0a0a0a] border-t border-[#262626]">
              <button 
