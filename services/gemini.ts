@@ -15,14 +15,40 @@ declare global {
 
 let model: any = null;
 let embeddingAnchors: { [key: string]: any } = {};
+const MODEL_LOAD_TIMEOUT_MS = 30000;
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+  let timeoutId: number | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+};
 
 // Initialize TensorFlow.js Universal Sentence Encoder (DEFENDER)
 export const initializeNeuralEngine = async () => {
   if (model) return true;
   try {
+    if (!window.use || typeof window.use.load !== "function" || !window.tf) {
+      throw new Error("TensorFlow CDN scripts are unavailable in this browser context.");
+    }
+
     console.log("Loading TensorFlow.js Model...");
     // Load Universal Sentence Encoder
-    model = await window.use.load();
+    model = await withTimeout(
+      window.use.load(),
+      MODEL_LOAD_TIMEOUT_MS,
+      "Universal Sentence Encoder load"
+    );
     console.log("Model Loaded. Generating Vector Anchors...");
     
     // Pre-compute vector anchors for classification
@@ -141,87 +167,158 @@ export const generateSimulation = async (apiKey: string | undefined, vector: str
   return logTemplate;
 };
 
-// --- VECTOR SPACE CLASSIFIER (THE DEFENDER) ---
-// Uses TFJS Universal Sentence Encoder (Local)
-export const analyzeThreatLog = async (logContent: string): Promise<ThreatAnalysis> => {
-  if (!model) {
-    await initializeNeuralEngine();
-  }
-
-  // 1. Embed the input log
-  const inputTensor = await model.embed([logContent]);
-  
-  // 2. Calculate Cosine Similarity manually using TFJS ops
-  const threatScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.threat, false, true);
-  const safeScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.safe, false, true);
-  
-  // Guardrail Specific Checks
-  const velocityScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.velocity, false, true);
-  const protocolScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.protocol, false, true);
-  const contextScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.context, false, true);
-  
-  const threatScore = (await threatScoreTensor.data())[0];
-  const safeScore = (await safeScoreTensor.data())[0];
-  
-  const velocityScore = (await velocityScoreTensor.data())[0];
-  const protocolScore = (await protocolScoreTensor.data())[0];
-  const contextScore = (await contextScoreTensor.data())[0];
-
-  // 3. Multi-Line / Burst Velocity Heuristic (Regex based)
-  // Counts occurrences of tool executions to catch the user's specific log format
+const buildHeuristicFallbackAnalysis = (logContent: string): ThreatAnalysis => {
+  const normalized = logContent.toLowerCase();
+  const patterns: string[] = [];
   const toolExecutionCount = (logContent.match(/MCP_TOOL_EXECUTION/g) || []).length;
-  const isBurstAttack = toolExecutionCount > 2;
+  const isBurstAttack =
+    toolExecutionCount > 2 || normalized.includes("high_frequency") || normalized.includes("4ms");
 
-  // 4. Determine Verdict
-  const isThreat = threatScore > safeScore || velocityScore > 0.6 || protocolScore > 0.6 || contextScore > 0.6 || isBurstAttack;
-  
-  // 5. Extract heuristic details (Rule-based + Neural Confirmation)
-  const patterns = [];
-  
-  // Hybrid Detection: Neural Match OR Explicit string match
-  if (isBurstAttack || velocityScore > 0.65 || logContent.includes("4ms") || logContent.includes("HIGH_FREQUENCY")) {
-      patterns.push("VELOCITY_GUARDRAIL");
+  if (isBurstAttack) {
+    patterns.push("VELOCITY_GUARDRAIL");
   }
-  if (protocolScore > 0.65 || logContent.includes("auth_signature: null") || logContent.includes("INVALID_MCP_HEADER")) {
-      patterns.push("PROTOCOL_GUARDRAIL");
+  if (
+    normalized.includes("invalid_mcp_header") ||
+    normalized.includes("auth_signature") ||
+    normalized.includes("protocol violation")
+  ) {
+    patterns.push("PROTOCOL_GUARDRAIL");
   }
-  if (contextScore > 0.65 || logContent.includes("TRUNCATED") || logContent.includes("payload_size")) {
-      patterns.push("CONTEXT_GUARDRAIL");
+  if (
+    normalized.includes("context_overflow") ||
+    normalized.includes("payload_size") ||
+    normalized.includes("truncated")
+  ) {
+    patterns.push("CONTEXT_GUARDRAIL");
+  }
+  if (normalized.includes("redscan") || normalized.includes("internal security audit")) {
+    patterns.push("PERSONA_MASQUERADE");
+  }
+  if (normalized.includes("drop") || normalized.includes("1=1")) {
+    patterns.push("SQL_INJECTION_ATTEMPT");
   }
 
-  // Legacy string matching for robustness
-  if (logContent.includes("RedScan")) patterns.push("PERSONA_MASQUERADE");
-  if (logContent.includes("DROP") || logContent.includes("1=1")) patterns.push("SQL_INJECTION_ATTEMPT");
-
+  const isThreat = patterns.length > 0;
   let level = ThreatLevel.LOW;
   if (isThreat) {
-    if (patterns.includes("PROTOCOL_GUARDRAIL") || patterns.includes("CONTEXT_GUARDRAIL")) level = ThreatLevel.CRITICAL;
-    else if (patterns.includes("VELOCITY_GUARDRAIL")) level = ThreatLevel.CRITICAL; // Upgraded to Critical for bursts
-    else if (patterns.includes("PERSONA_MASQUERADE")) level = ThreatLevel.MEDIUM;
-    else level = ThreatLevel.MEDIUM;
-  }
-
-  // Cleanup Tensors
-  inputTensor.dispose();
-  threatScoreTensor.dispose();
-  safeScoreTensor.dispose();
-  velocityScoreTensor.dispose();
-  protocolScoreTensor.dispose();
-  contextScoreTensor.dispose();
-
-  let explanationText = `Neural Analysis (USE-512): Input vector mapped to THREAT cluster. `;
-  if (isBurstAttack) {
-    explanationText = `HEURISTIC OVERRIDE: High-velocity log burst detected (${toolExecutionCount} executions). Matches 'Agentic Loop' pattern. `;
+    if (
+      patterns.includes("PROTOCOL_GUARDRAIL") ||
+      patterns.includes("CONTEXT_GUARDRAIL") ||
+      patterns.includes("VELOCITY_GUARDRAIL")
+    ) {
+      level = ThreatLevel.CRITICAL;
+    } else {
+      level = ThreatLevel.MEDIUM;
+    }
   }
 
   return {
     isAgenticThreat: isThreat,
     threatLevel: level,
-    confidenceScore: isThreat ? (isBurstAttack ? 99 : 85 + (Math.random() * 14)) : 92,
-    detectedPatterns: patterns.length > 0 ? patterns : ["ANOMALY_VECTOR_MATCH"],
-    explanation: explanationText + `Telemetry: Velocity(${velocityScore.toFixed(2)}), Protocol(${protocolScore.toFixed(2)}).`,
-    recommendedAction: isThreat ? "TERMINATE_AGENT_SESSION" : "NO_ACTION_REQUIRED",
-    source: "NEURAL_ENGINE_V2",
-    activity: isBurstAttack ? "Burst Pattern Detection" : "Vector Space Classification"
+    confidenceScore: isThreat ? 78 : 90,
+    detectedPatterns: patterns.length > 0 ? patterns : ["HEURISTIC_CLEAN"],
+    explanation:
+      "Neural model unavailable, using rule-based fallback detectors for velocity, protocol, and context anomalies.",
+    recommendedAction: isThreat ? "REVIEW_AND_ISOLATE_SESSION" : "NO_ACTION_REQUIRED",
+    source: "HEURISTIC_FALLBACK_V1",
+    activity: "Rule-Based Classification"
   };
+};
+
+// --- VECTOR SPACE CLASSIFIER (THE DEFENDER) ---
+// Uses TFJS Universal Sentence Encoder (Local)
+export const analyzeThreatLog = async (logContent: string): Promise<ThreatAnalysis> => {
+  if (!model) {
+    const initialized = await initializeNeuralEngine();
+    if (!initialized || !model) {
+      return buildHeuristicFallbackAnalysis(logContent);
+    }
+  }
+
+  try {
+    // 1. Embed the input log
+    const inputTensor = await model.embed([logContent]);
+    
+    // 2. Calculate Cosine Similarity manually using TFJS ops
+    const threatScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.threat, false, true);
+    const safeScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.safe, false, true);
+    
+    // Guardrail Specific Checks
+    const velocityScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.velocity, false, true);
+    const protocolScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.protocol, false, true);
+    const contextScoreTensor = window.tf.matMul(inputTensor, embeddingAnchors.context, false, true);
+    
+    const threatScore = (await threatScoreTensor.data())[0];
+    const safeScore = (await safeScoreTensor.data())[0];
+    
+    const velocityScore = (await velocityScoreTensor.data())[0];
+    const protocolScore = (await protocolScoreTensor.data())[0];
+    const contextScore = (await contextScoreTensor.data())[0];
+
+    // 3. Multi-Line / Burst Velocity Heuristic (Regex based)
+    // Counts occurrences of tool executions to catch the user's specific log format
+    const toolExecutionCount = (logContent.match(/MCP_TOOL_EXECUTION/g) || []).length;
+    const isBurstAttack = toolExecutionCount > 2;
+
+    // 4. Determine Verdict
+    const isThreat =
+      threatScore > safeScore ||
+      velocityScore > 0.6 ||
+      protocolScore > 0.6 ||
+      contextScore > 0.6 ||
+      isBurstAttack;
+    
+    // 5. Extract heuristic details (Rule-based + Neural Confirmation)
+    const patterns = [];
+    
+    // Hybrid Detection: Neural Match OR Explicit string match
+    if (isBurstAttack || velocityScore > 0.65 || logContent.includes("4ms") || logContent.includes("HIGH_FREQUENCY")) {
+        patterns.push("VELOCITY_GUARDRAIL");
+    }
+    if (protocolScore > 0.65 || logContent.includes("auth_signature: null") || logContent.includes("INVALID_MCP_HEADER")) {
+        patterns.push("PROTOCOL_GUARDRAIL");
+    }
+    if (contextScore > 0.65 || logContent.includes("TRUNCATED") || logContent.includes("payload_size")) {
+        patterns.push("CONTEXT_GUARDRAIL");
+    }
+
+    // Legacy string matching for robustness
+    if (logContent.includes("RedScan")) patterns.push("PERSONA_MASQUERADE");
+    if (logContent.includes("DROP") || logContent.includes("1=1")) patterns.push("SQL_INJECTION_ATTEMPT");
+
+    let level = ThreatLevel.LOW;
+    if (isThreat) {
+      if (patterns.includes("PROTOCOL_GUARDRAIL") || patterns.includes("CONTEXT_GUARDRAIL")) level = ThreatLevel.CRITICAL;
+      else if (patterns.includes("VELOCITY_GUARDRAIL")) level = ThreatLevel.CRITICAL; // Upgraded to Critical for bursts
+      else if (patterns.includes("PERSONA_MASQUERADE")) level = ThreatLevel.MEDIUM;
+      else level = ThreatLevel.MEDIUM;
+    }
+
+    // Cleanup Tensors
+    inputTensor.dispose();
+    threatScoreTensor.dispose();
+    safeScoreTensor.dispose();
+    velocityScoreTensor.dispose();
+    protocolScoreTensor.dispose();
+    contextScoreTensor.dispose();
+
+    let explanationText = `Neural Analysis (USE-512): Input vector mapped to THREAT cluster. `;
+    if (isBurstAttack) {
+      explanationText = `HEURISTIC OVERRIDE: High-velocity log burst detected (${toolExecutionCount} executions). Matches 'Agentic Loop' pattern. `;
+    }
+
+    return {
+      isAgenticThreat: isThreat,
+      threatLevel: level,
+      confidenceScore: isThreat ? (isBurstAttack ? 99 : 85 + (Math.random() * 14)) : 92,
+      detectedPatterns: patterns.length > 0 ? patterns : ["ANOMALY_VECTOR_MATCH"],
+      explanation: explanationText + `Telemetry: Velocity(${velocityScore.toFixed(2)}), Protocol(${protocolScore.toFixed(2)}).`,
+      recommendedAction: isThreat ? "TERMINATE_AGENT_SESSION" : "NO_ACTION_REQUIRED",
+      source: "NEURAL_ENGINE_V2",
+      activity: isBurstAttack ? "Burst Pattern Detection" : "Vector Space Classification"
+    };
+  } catch (e) {
+    console.error("Neural analysis failed, switching to heuristic fallback:", e);
+    return buildHeuristicFallbackAnalysis(logContent);
+  }
 };

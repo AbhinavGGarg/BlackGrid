@@ -75,12 +75,19 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       setNeuralStatus("LOADING TENSORFLOW.JS...");
-      const success = await initializeNeuralEngine();
-      if (success) {
-        setNeuralStatus("ONLINE (WebGL ACCELERATED)");
+      try {
+        const success = await initializeNeuralEngine();
+        if (success) {
+          setNeuralStatus("ONLINE (WebGL ACCELERATED)");
+        } else {
+          setNeuralStatus("OFFLINE (HEURISTIC FALLBACK ACTIVE)");
+        }
+      } catch (e) {
+        console.error("Neural initialization failed:", e);
+        setNeuralStatus("OFFLINE (HEURISTIC FALLBACK ACTIVE)");
+      } finally {
+        // Always unlock UI even if model/CDN load fails.
         setIsNeuralLoading(false);
-      } else {
-        setNeuralStatus("OFFLINE (Model Failed)");
       }
     };
     init();
