@@ -1,122 +1,138 @@
 # BLACKGRID
-## Neural Defense Grid (Hybrid Architecture)
 
-**Author:** Ritvik Indupuri
-**Version:** 2.1.0
-**Status:** Active // Production Ready
+BLACKGRID is a tactical cyber-defense interface for detecting and containing agent-driven threats in real time.
 
----
+It combines local semantic analysis, simulated adversarial activity, and operational response tooling in one command-center style platform.
 
-### 1. Executive Summary
+## Why BLACKGRID Exists
 
-**BlackGrid** is a browser-based cybersecurity platform designed to detect and neutralize **"Agentic Breakouts"**.
+Modern agent workflows can fail in ways classic filters miss:
+- semantic prompt manipulation
+- protocol abuse across tool chains
+- high-velocity action bursts
+- context-window overflow tactics
 
-As AI agents become more autonomous (utilizing tools via the **Model Context Protocol**), traditional regex-based firewalls fail to detect semantic threats like persona masquerading or context-window overflow attacks. BlackGrid solves this by deploying a **Local Neural Network** directly in the browser to analyze telemetry in real-time.
+BLACKGRID is built to surface these patterns early and turn them into clear, actionable operator decisions.
 
+## Core System Model
 
+BLACKGRID runs as a hybrid model:
 
----
+1. Attacker Simulation Layer
+- Uses Gemini-powered generation (when API key is provided) or local procedural fallbacks
+- Produces realistic, structured threat telemetry
 
-### 2. High-Level Architecture
+2. Defender Analysis Layer
+- Runs TensorFlow.js + Universal Sentence Encoder in-browser
+- Applies neural scoring + explicit guardrail heuristics
 
-The system employs a **Bicameral (Two-Brain) Architecture** that decouples threat generation (Cloud) from threat detection (Edge), ensuring zero-trust privacy for analysis.
+3. Operations Layer
+- Displays live telemetry, verdicts, mitigation playbooks, reports, and global threat simulation
 
-<p align="center">
-  <img src="https://i.imgur.com/kp4COh6.png" alt="BlackGrid Hybrid Architecture Diagram" width="700" />
-  <br>
-  <em>Figure 1: BlackGrid Hybrid Data Flow (Cloud Generation → Local Neural Analysis)</em>
-</p>
+## Product Surfaces
 
-**Architecture Breakdown:**
+### 1) Homepage Entry Surface
+- Mission-style front page with system overview
+- Direct handoff into the platform via `Enter Defense Grid`
 
-1.  **Cloud Layer (The Attacker):**
-    *   **Google Gemini 2.5 Flash** acts as the "Red Team."
-    *   It generates high-fidelity, context-aware **JSON Attack Logs** simulating advanced tradecraft (RedScan Protocol, Context Overflows) based on specific prompts.
+### 2) Threat Hunter
+- Generate simulated attack logs by vector
+- Run one-click demo scenario
+- Analyze telemetry for verdict, severity, artifacts, and recommended action
+- Get immediate next-step remediation playbooks
 
-2.  **Local Client Layer (The Defender):**
-    *   **Threat Hunter Console:** The interface where operators inject logs or trigger simulations.
-    *   **TensorFlow.js Engine:** The core defense logic. It runs the **Universal Sentence Encoder** entirely in the browser's WebGL backend. It converts incoming logs into 512-dimensional vectors and performs matrix multiplication against known threat anchors.
-    *   **Ops Center:** Visualizes the output (Threat Scores, System Load) in real-time.
+### 3) Global Threat Map
+- Tactical world/network visualization with regional nodes:
+  - `US-WEST`, `US-EAST`, `EU-CENTRAL`, `APAC-01`, `LATAM`, `MEA`
+- Animated threat routes, pulsing targets, and live event feed
+- Node state tracking:
+  - `SECURE`, `PROBED`, `UNDER ATTACK`, `ISOLATED`, `RECOVERING`
+- Reacts to Threat Hunter activity (`Run Demo`, `Generate Log`, `Analyze`)
 
----
+### 4) Raw Telemetry
+- Event ledger for analyzed logs
+- Expandable payload inspection
+- CSV export for compliance/audit workflows
 
-### 3. Core Capabilities
+### 5) Summary Report
+- Executive outline of findings
+- Most-targeted assets and recurring patterns
+- Prioritized response steps
+- Downloadable summary report export
 
-#### Neural Heuristics Engine
-Instead of sending sensitive logs to the cloud, BlackGrid loads the **Universal Sentence Encoder** model directly into the browser's GPU. It measures the semantic distance between incoming logs and known threat anchors.
-*   **Zero-Shot Learning:** Detects novel threats based on conceptual similarity rather than exact keyword matches.
+## Detection & Severity Model
 
-####  Procedural Telemetry Generator
-A dual-mode engine that constructs realistic cyber-attack logs for training and testing.
-*   **Cloud Mode:** Uses Gemini API to generate context-aware Red Team logs.
-*   **Local Mode:** Uses algorithmic templates for offline simulation.
+### Threat Levels
+- `LOW`
+- `MEDIUM`
+- `HIGH`
+- `CRITICAL`
 
-####  MCP Guardrails
-Specific detectors for **Model Context Protocol** violations:
-*   **Velocity:** Detects inhuman tool execution speeds (>3 ops/sec).
-*   **Protocol:** Flags missing authentication signatures in agent handshakes.
-*   **Context:** Identifies payload truncation attempts designed to hide malicious code.
+### Guardrail Pattern Classes
+- `VELOCITY_GUARDRAIL`
+- `PROTOCOL_GUARDRAIL`
+- `CONTEXT_GUARDRAIL`
+- `PERSONA_MASQUERADE`
+- `SQL_INJECTION_ATTEMPT`
 
----
+### Response Logic
+Every analysis returns:
+- verdict (`THREAT` or `CLEAN`)
+- confidence score
+- detected artifacts
+- recommended action
+- ordered operational next steps
 
-### 4. Technology Stack
+## Tech Stack
 
-*   **Frontend Framework:** React 19 (TypeScript)
-*   **Defense Engine:** TensorFlow.js (WebGL) + Universal Sentence Encoder
-*   **Attack Engine:** Google GenAI SDK (Gemini 2.5 Flash)
-*   **Visualization:** Recharts
-*   **Styling:** Tailwind CSS
-*   **Icons:** Lucide React
+- React + TypeScript
+- Vite
+- Tailwind CSS
+- TensorFlow.js + Universal Sentence Encoder
+- Google GenAI SDK (Gemini)
+- Recharts
+- Lucide React
 
----
+## Local Setup
 
-### 5. Installation & Setup
+### Requirements
+- Node.js 18+
+- npm 9+
+- Modern browser with WebGL enabled
 
-**Prerequisites:**
-- Node.js (v18 or higher)
-- NPM (v9 or higher)
-- Modern Browser (Chrome/Edge/Firefox) with WebGL enabled
-
-**Step 1: Clone the Repository**
+### Install
 ```bash
 git clone https://github.com/AbhinavGGarg/BlackGrid.git
 cd BlackGrid
-```
-
-**Step 2: Install Dependencies**
-```bash
 npm install
 ```
 
-**Step 3: Launch Application**
+### Run
 ```bash
-npm start
+npm run dev
 ```
-The application will launch at `http://localhost:3000`.
-*Note: Upon first load, the system will download the TensorFlow.js model shards (approx 30MB). This happens once and is cached.*
 
----
+### Production Build
+```bash
+npm run build
+npm run preview
+```
 
-### 6. Usage Guide
+## Usage Flow
 
-#### Phase 1: Threat Hunting (Simulation)
-1.  Navigate to **Threat Hunter**.
-2.  Select an Attack Vector (e.g., "Exfiltration").
-3.  (Optional) Enter a Gemini API Key in Settings for AI-powered generation.
-4.  Click **GENERATE LOG**. The system will "type out" a simulated attack log.
+1. Open homepage and enter platform
+2. Go to **Threat Hunter** and choose attack vector
+3. Generate or demo telemetry
+4. Analyze and review recommended action + step-by-step response
+5. Validate system-wide behavior in **Global Threat Map**
+6. Export artifacts from **Raw Telemetry** and **Summary Report**
 
-#### Phase 2: Neural Analysis (Defense)
-1.  Click **ANALYZE TELEMETRY**.
-2.  The local TensorFlow model computes the vector embeddings.
-3.  A verdict (THREAT/CLEAN) is returned in <100ms.
+## Notes
 
-#### Phase 3: Compliance & Auditing
-1.  Navigate to **Raw Telemetry**.
-2.  Review the immutable audit trail.
-3.  Click **EXPORT COMPLIANCE REPORT** to download a CSV for external auditing.
+- Gemini key is optional. Without it, BLACKGRID uses local procedural generation.
+- Neural loading includes fallback handling so the interface remains operational even when model/CDN load fails.
 
----
+## Disclaimer
 
-### 7. Disclaimer
-
-This tool uses client-side machine learning for educational and research purposes. While the Universal Sentence Encoder is powerful, production security systems should rely on multi-layered defense strategies involving network-level firewalls and SIEM integration.
+BLACKGRID is designed for simulation, research, and defense workflow prototyping.
+Use in controlled environments and pair with layered security controls for production operations.
