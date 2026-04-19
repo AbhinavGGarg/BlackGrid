@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Analyzer from './components/Analyzer';
+import GlobalThreatMap from './components/GlobalThreatMap';
 import LandingPage from './components/LandingPage';
 import { X, Save, Cpu, Check, Shield, Activity, AlertTriangle, Loader2, Zap, Key, FolderOpen, FileText, ChevronRight, Plus, History, Download, FileCheck, Trash2, Copy, Eye, CheckCircle, XCircle, Terminal, ArrowLeft } from 'lucide-react';
-import { LogEntry, ThreatAnalysis, ThreatLevel, SavedSession } from './types';
+import { LogEntry, ThreatAnalysis, ThreatLevel, SavedSession, AttackVector } from './types';
 import { initializeNeuralEngine } from './services/gemini';
 import { GoogleGenAI } from "@google/genai";
 
@@ -27,6 +28,9 @@ const App: React.FC = () => {
 
   // State for Expanded Log Details
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [mapActiveVector, setMapActiveVector] = useState<AttackVector>('Reconnaissance');
+  const [mapTriggerSource, setMapTriggerSource] = useState<'demo' | 'generate' | 'analyze' | 'telemetry'>('generate');
+  const [mapTriggerNonce, setMapTriggerNonce] = useState(0);
 
   const platformFarStars = useMemo(
     () =>
@@ -198,6 +202,12 @@ const App: React.FC = () => {
       details: analysis
     };
     setLogs(prev => [...prev, newLog]);
+  };
+
+  const handleSimulationTrigger = (vector: AttackVector, source: 'demo' | 'generate' | 'analyze') => {
+    setMapActiveVector(vector);
+    setMapTriggerSource(source);
+    setMapTriggerNonce((prev) => prev + 1);
   };
 
   const handleExportCsv = () => {
@@ -453,9 +463,18 @@ const App: React.FC = () => {
         <div className={activeTab === 'analyzer' ? 'block h-full' : 'hidden h-full'}>
              <Analyzer 
                 onAnalysisComplete={handleAnalysisComplete} 
+                onSimulationTrigger={handleSimulationTrigger}
                 apiKey={apiKey} 
                 clearTrigger={clearTrigger}
              />
+        </div>
+        <div className={activeTab === 'global-map' ? 'block h-full' : 'hidden h-full'}>
+          <GlobalThreatMap
+            logs={logs}
+            activeVector={mapActiveVector}
+            triggerPulse={mapTriggerNonce}
+            triggerSource={mapTriggerSource}
+          />
         </div>
         
         {/* ENHANCED RAW TELEMETRY / COMPLIANCE TAB */}

@@ -5,11 +5,12 @@ import { ThreatAnalysis, AttackVector } from '../types';
 
 interface AnalyzerProps {
   onAnalysisComplete: (analysis: ThreatAnalysis) => void;
+  onSimulationTrigger?: (vector: AttackVector, source: 'demo' | 'generate' | 'analyze') => void;
   apiKey: string;
   clearTrigger: number;
 }
 
-const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTrigger }) => {
+const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, onSimulationTrigger, apiKey, clearTrigger }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -98,6 +99,7 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
+    onSimulationTrigger?.(selectedVector, 'analyze');
     setIsLoading(true);
     setResult(null);
     try {
@@ -115,6 +117,7 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
   };
 
   const handleSimulate = async () => {
+    onSimulationTrigger?.(selectedVector, 'generate');
     setIsSimulating(true);
     setResult(null);
     setInput("");
@@ -147,6 +150,7 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
 
   const handleRunDemo = async () => {
     if (isLoading || isSimulating) return;
+    onSimulationTrigger?.('Exploitation', 'demo');
 
     setIsLoading(true);
     setResult(null);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Radar, Terminal, Settings, Cpu, Activity, FileText } from 'lucide-react';
+import { LayoutGrid, Radar, Terminal, Settings, Cpu, Activity, FileText, Globe2 } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -11,6 +11,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenSettin
   const navItems = [
     { id: 'dashboard', label: 'Ops Center', icon: LayoutGrid },
     { id: 'analyzer', label: 'Threat Hunter', icon: Radar },
+    { id: 'global-map', label: 'Global Threat Map', icon: Globe2 },
     { id: 'logs', label: 'Raw Telemetry', icon: Terminal },
     { id: 'reports', label: 'Summary Report', icon: FileText },
   ];
