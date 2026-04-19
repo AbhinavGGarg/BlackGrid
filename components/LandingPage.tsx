@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ArrowRight, Check, Cpu, Radar, Shield, Activity, Lock, Gauge, TerminalSquare } from 'lucide-react';
 
 interface LandingPageProps {
@@ -15,9 +15,71 @@ const landingFeatures = [
 ];
 
 const LandingPage: React.FC<LandingPageProps> = ({ onEnterPlatform }) => {
+  const farStars = useMemo(
+    () =>
+      Array.from({ length: 110 }, (_, i) => ({
+        left: ((i * 37) % 1000) / 10,
+        top: ((i * 91) % 1000) / 10,
+        size: i % 4 === 0 ? 2 : 1,
+        opacity: 0.25 + ((i % 6) * 0.08),
+        duration: 5 + (i % 8) * 0.9,
+        delay: (i % 9) * 0.35,
+      })),
+    []
+  );
+
+  const nearStars = useMemo(
+    () =>
+      Array.from({ length: 70 }, (_, i) => ({
+        left: ((i * 61 + 190) % 1000) / 10,
+        top: ((i * 47 + 320) % 1000) / 10,
+        size: i % 5 === 0 ? 3 : 2,
+        opacity: 0.35 + ((i % 5) * 0.1),
+        duration: 4 + (i % 7) * 0.75,
+        delay: (i % 10) * 0.4,
+      })),
+    []
+  );
+
   return (
-    <div className="h-screen overflow-y-auto bg-[#050505] text-[#e5e5e5]">
-      <div className="mx-auto max-w-6xl px-6 md:px-10 py-8 md:py-12 space-y-8 md:space-y-10">
+    <div className="relative h-screen overflow-y-auto bg-[#050505] text-[#e5e5e5]">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(42,101,255,0.08),transparent_40%),radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.05),transparent_35%),linear-gradient(to_bottom,rgba(0,0,0,0.2),rgba(0,0,0,0.55))]" />
+        <div className="star-layer far absolute inset-0">
+          {farStars.map((star, idx) => (
+            <span
+              key={`far-${idx}`}
+              className="absolute rounded-full bg-white"
+              style={{
+                left: `${star.left}%`,
+                top: `${star.top}%`,
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                opacity: star.opacity,
+                animation: `blackgrid-star-pulse ${star.duration}s ease-in-out ${star.delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+        <div className="star-layer near absolute inset-0">
+          {nearStars.map((star, idx) => (
+            <span
+              key={`near-${idx}`}
+              className="absolute rounded-full bg-white"
+              style={{
+                left: `${star.left}%`,
+                top: `${star.top}%`,
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                opacity: star.opacity,
+                animation: `blackgrid-star-pulse ${star.duration}s ease-in-out ${star.delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-6xl px-6 md:px-10 py-8 md:py-12 space-y-8 md:space-y-10 relative z-10">
         <header className="border border-[#262626] bg-[#0a0a0a]/90 px-5 py-4 md:px-6 md:py-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -154,6 +216,40 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterPlatform }) => {
           </button>
         </section>
       </div>
+
+      <style>{`
+        @keyframes blackgrid-star-pulse {
+          0%, 100% { opacity: 0.2; transform: scale(1); }
+          50% { opacity: 0.85; transform: scale(1.25); }
+        }
+
+        @keyframes blackgrid-star-drift-far {
+          0% { transform: translate3d(0, 0, 0); }
+          50% { transform: translate3d(-8px, 12px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
+
+        @keyframes blackgrid-star-drift-near {
+          0% { transform: translate3d(0, 0, 0); }
+          50% { transform: translate3d(10px, -10px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
+
+        .star-layer.far {
+          animation: blackgrid-star-drift-far 24s ease-in-out infinite;
+        }
+
+        .star-layer.near {
+          animation: blackgrid-star-drift-near 18s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .star-layer.far,
+          .star-layer.near {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
