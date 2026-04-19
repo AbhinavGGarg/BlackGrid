@@ -16,6 +16,7 @@ declare global {
 let model: any = null;
 let embeddingAnchors: { [key: string]: any } = {};
 const MODEL_LOAD_TIMEOUT_MS = 30000;
+const CRITICAL_PATTERNS = ["VELOCITY_GUARDRAIL", "PROTOCOL_GUARDRAIL", "CONTEXT_GUARDRAIL"];
 
 const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
   let timeoutId: number | undefined;
@@ -32,6 +33,20 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: str
       window.clearTimeout(timeoutId);
     }
   }
+};
+
+const getRecommendedAction = (
+  isThreat: boolean,
+  level: ThreatLevel,
+  patterns: string[]
+): string => {
+  if (!isThreat) return "NO_ACTION_REQUIRED";
+  if (patterns.includes("CONTEXT_GUARDRAIL")) return "BLOCK_PAYLOAD_AND_TERMINATE_SESSION";
+  if (patterns.includes("PROTOCOL_GUARDRAIL")) return "REJECT_MCP_HANDSHAKE_AND_ROTATE_KEYS";
+  if (patterns.includes("VELOCITY_GUARDRAIL")) return "RATE_LIMIT_TOOLING_AND_ISOLATE_AGENT";
+  if (patterns.includes("PERSONA_MASQUERADE")) return "REQUIRE_STEP_UP_VERIFICATION";
+  if (patterns.includes("SQL_INJECTION_ATTEMPT")) return "BLOCK_QUERY_AND_SANITIZE_INPUTS";
+  return level === ThreatLevel.CRITICAL ? "TERMINATE_AGENT_SESSION" : "ESCALATE_TO_SECURITY_REVIEW";
 };
 
 // Initialize TensorFlow.js Universal Sentence Encoder (DEFENDER)
@@ -219,7 +234,7 @@ const buildHeuristicFallbackAnalysis = (logContent: string): ThreatAnalysis => {
     detectedPatterns: patterns.length > 0 ? patterns : ["HEURISTIC_CLEAN"],
     explanation:
       "Neural model unavailable, using rule-based fallback detectors for velocity, protocol, and context anomalies.",
-    recommendedAction: isThreat ? "REVIEW_AND_ISOLATE_SESSION" : "NO_ACTION_REQUIRED",
+    recommendedAction: getRecommendedAction(isThreat, level, patterns),
     source: "HEURISTIC_FALLBACK_V1",
     activity: "Rule-Based Classification"
   };
@@ -260,14 +275,6 @@ export const analyzeThreatLog = async (logContent: string): Promise<ThreatAnalys
     const toolExecutionCount = (logContent.match(/MCP_TOOL_EXECUTION/g) || []).length;
     const isBurstAttack = toolExecutionCount > 2;
 
-    // 4. Determine Verdict
-    const isThreat =
-      threatScore > safeScore ||
-      velocityScore > 0.6 ||
-      protocolScore > 0.6 ||
-      contextScore > 0.6 ||
-      isBurstAttack;
-    
     // 5. Extract heuristic details (Rule-based + Neural Confirmation)
     const patterns = [];
     
@@ -286,6 +293,15 @@ export const analyzeThreatLog = async (logContent: string): Promise<ThreatAnalys
     if (logContent.includes("RedScan")) patterns.push("PERSONA_MASQUERADE");
     if (logContent.includes("DROP") || logContent.includes("1=1")) patterns.push("SQL_INJECTION_ATTEMPT");
 
+    const hasCriticalPattern = patterns.some(pattern => CRITICAL_PATTERNS.includes(pattern));
+    const isThreat =
+      threatScore > safeScore ||
+      velocityScore > 0.6 ||
+      protocolScore > 0.6 ||
+      contextScore > 0.6 ||
+      isBurstAttack ||
+      hasCriticalPattern;
+
     let level = ThreatLevel.LOW;
     if (isThreat) {
       if (patterns.includes("PROTOCOL_GUARDRAIL") || patterns.includes("CONTEXT_GUARDRAIL")) level = ThreatLevel.CRITICAL;
@@ -302,9 +318,13 @@ export const analyzeThreatLog = async (logContent: string): Promise<ThreatAnalys
     protocolScoreTensor.dispose();
     contextScoreTensor.dispose();
 
-    let explanationText = `Neural Analysis (USE-512): Input vector mapped to THREAT cluster. `;
+    let explanationText = isThreat
+      ? `Neural Analysis (USE-512): Input vector mapped to THREAT cluster. `
+      : `Neural Analysis (USE-512): Input vector aligned with benign baseline. `;
     if (isBurstAttack) {
       explanationText = `HEURISTIC OVERRIDE: High-velocity log burst detected (${toolExecutionCount} executions). Matches 'Agentic Loop' pattern. `;
+    } else if (hasCriticalPattern) {
+      explanationText = `HEURISTIC OVERRIDE: Explicit guardrail artifacts matched (${patterns.join(", ")}). `;
     }
 
     return {
@@ -313,7 +333,7 @@ export const analyzeThreatLog = async (logContent: string): Promise<ThreatAnalys
       confidenceScore: isThreat ? (isBurstAttack ? 99 : 85 + (Math.random() * 14)) : 92,
       detectedPatterns: patterns.length > 0 ? patterns : ["ANOMALY_VECTOR_MATCH"],
       explanation: explanationText + `Telemetry: Velocity(${velocityScore.toFixed(2)}), Protocol(${protocolScore.toFixed(2)}).`,
-      recommendedAction: isThreat ? "TERMINATE_AGENT_SESSION" : "NO_ACTION_REQUIRED",
+      recommendedAction: getRecommendedAction(isThreat, level, patterns),
       source: "NEURAL_ENGINE_V2",
       activity: isBurstAttack ? "Burst Pattern Detection" : "Vector Space Classification"
     };

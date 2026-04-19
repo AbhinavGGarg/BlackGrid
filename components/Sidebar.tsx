@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Radar, Terminal, Settings, Cpu, Activity, Database } from 'lucide-react';
+import { LayoutGrid, Radar, Terminal, Settings, Cpu, Activity } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -25,7 +25,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenSettin
           </div>
           <div className="leading-none">
             <h1 className="font-bold text-white tracking-wider text-lg">BLACKGRID</h1>
-            <span className="text-[10px] tracking-[0.2em] text-slate-500 font-bold uppercase">Defense Grid</span>
           </div>
         </div>
       </div>
