@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Analyzer from './components/Analyzer';
-import { X, Save, Cpu, Check, Shield, Activity, AlertTriangle, Loader2, Zap, Key, FolderOpen, FileText, ChevronRight, Plus, History, Download, FileCheck, Trash2, Copy, Eye, CheckCircle, XCircle, Terminal } from 'lucide-react';
+import LandingPage from './components/LandingPage';
+import { X, Save, Cpu, Check, Shield, Activity, AlertTriangle, Loader2, Zap, Key, FolderOpen, FileText, ChevronRight, Plus, History, Download, FileCheck, Trash2, Copy, Eye, CheckCircle, XCircle, Terminal, ArrowLeft } from 'lucide-react';
 import { LogEntry, ThreatAnalysis, ThreatLevel, SavedSession } from './types';
 import { initializeNeuralEngine } from './services/gemini';
 import { GoogleGenAI } from "@google/genai";
 
 const App: React.FC = () => {
+  const [appView, setAppView] = useState<'home' | 'platform'>('home');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSessionPickerOpen, setIsSessionPickerOpen] = useState(false);
@@ -196,8 +198,23 @@ const App: React.FC = () => {
       navigator.clipboard.writeText(json);
   };
 
+  const handleEnterPlatform = () => {
+    setActiveTab('dashboard');
+    setAppView('platform');
+  };
+
+  const handleBackToHomepage = () => {
+    setIsSettingsOpen(false);
+    setIsSessionPickerOpen(false);
+    setAppView('home');
+  };
+
   // Combine both sources for the UI list
   const allSessions = [...userSessions, ...HISTORICAL_SESSIONS];
+
+  if (appView === 'home') {
+    return <LandingPage onEnterPlatform={handleEnterPlatform} />;
+  }
 
   return (
     <div className="flex h-screen text-[#e5e5e5] overflow-hidden relative bg-[#050505]">
@@ -209,6 +226,14 @@ const App: React.FC = () => {
       />
       
       <main className="flex-1 overflow-auto relative z-10 bg-[#050505]">
+        <button
+          onClick={handleBackToHomepage}
+          className="absolute top-4 right-4 z-30 border border-[#333] bg-[#0f0f0f]/90 hover:border-blue-500/60 hover:text-white text-[#a3a3a3] px-3 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors"
+        >
+          <ArrowLeft size={13} />
+          Back To Homepage
+        </button>
+
         {/* Loading Overlay for Neural Net */}
         {isNeuralLoading && (
           <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center">
