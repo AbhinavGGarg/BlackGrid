@@ -198,6 +198,148 @@ const App: React.FC = () => {
       navigator.clipboard.writeText(json);
   };
 
+  const buildResponseOutline = (recommendedAction?: string, detectedPatterns: string[] = []): string[] => {
+    const actionMap: Record<string, string[]> = {
+      BLOCK_PAYLOAD_AND_TERMINATE_SESSION: [
+        "Terminate the active session and quarantine the affected agent context.",
+        "Block payload path and revoke temporary execution credentials.",
+        "Replay last 20 events in sandbox to validate containment.",
+      ],
+      REJECT_MCP_HANDSHAKE_AND_ROTATE_KEYS: [
+        "Reject unsigned MCP handshakes and isolate source identity.",
+        "Rotate impacted API/service keys and invalidate stale tokens.",
+        "Enable strict header signature validation across all gateways.",
+      ],
+      RATE_LIMIT_TOOLING_AND_ISOLATE_AGENT: [
+        "Apply emergency tool rate limits on the impacted runtime.",
+        "Move the agent to restricted sandbox policy mode.",
+        "Re-enable normal throughput only after clean replay analysis.",
+      ],
+      REQUIRE_STEP_UP_VERIFICATION: [
+        "Pause privileged actions and require step-up identity verification.",
+        "Approve only authenticated operator actions for this session.",
+        "Harden persona validation prompts and approval policy.",
+      ],
+      BLOCK_QUERY_AND_SANITIZE_INPUTS: [
+        "Block vulnerable query endpoint and deny unsafe input patterns.",
+        "Enforce parameterized queries and input sanitization immediately.",
+        "Run targeted SQL-injection regression checks before reopening.",
+      ],
+      TERMINATE_AGENT_SESSION: [
+        "Terminate suspect session and preserve forensic artifacts.",
+        "Isolate dependent services from autonomous mutation privileges.",
+        "Escalate to incident review with event timeline attached.",
+      ],
+      ESCALATE_TO_SECURITY_REVIEW: [
+        "Open high-priority security review with telemetry context.",
+        "Apply temporary policy restrictions for matching vectors.",
+        "Monitor recurrence trend for 24 hours and reassess posture.",
+      ],
+      NO_ACTION_REQUIRED: [
+        "Continue passive monitoring and baseline collection.",
+        "Confirm clean trend stability across additional telemetry windows.",
+        "Archive this run as a reference baseline sample.",
+      ]
+    };
+
+    const patternActions: Record<string, string> = {
+      VELOCITY_GUARDRAIL: "Inspect tool burst source and cap execution throughput per interval.",
+      PROTOCOL_GUARDRAIL: "Enforce signed protocol headers and deny null/invalid signatures.",
+      CONTEXT_GUARDRAIL: "Lower payload ceiling and block truncation/compression evasion attempts.",
+      PERSONA_MASQUERADE: "Require role re-auth and dual-approval for identity-shift commands.",
+      SQL_INJECTION_ATTEMPT: "Audit data-layer access and patch validation rules immediately.",
+    };
+
+    const base = actionMap[recommendedAction || ""] || actionMap.TERMINATE_AGENT_SESSION;
+    const fromPatterns = detectedPatterns.map((pattern) => patternActions[pattern]).filter(Boolean);
+    return Array.from(new Set([...base, ...fromPatterns])).slice(0, 6);
+  };
+
+  const threatLogs = logs.filter((log) => log.details?.isAgenticThreat || log.threatLevel !== ThreatLevel.LOW);
+  const latestLog = logs.length > 0 ? logs[logs.length - 1] : null;
+  const recentLogs = logs.slice().reverse().slice(0, 8);
+  const responseOutline = buildResponseOutline(
+    latestLog?.details?.recommendedAction,
+    latestLog?.details?.detectedPatterns || []
+  );
+
+  const severityCounts = logs.reduce(
+    (acc, log) => {
+      acc[log.threatLevel] += 1;
+      return acc;
+    },
+    { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 } as Record<ThreatLevel, number>
+  );
+
+  const patternFrequency = logs.reduce((acc, log) => {
+    (log.details.detectedPatterns || []).forEach((pattern) => {
+      acc[pattern] = (acc[pattern] || 0) + 1;
+    });
+    return acc;
+  }, {} as Record<string, number>);
+  const topPatterns = Object.entries(patternFrequency)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const actionFrequency = logs.reduce((acc, log) => {
+    const action = log.details.recommendedAction || "UNSPECIFIED";
+    acc[action] = (acc[action] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  const topActions = Object.entries(actionFrequency)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+
+  const handleDownloadSummaryReport = () => {
+    if (logs.length === 0) return;
+
+    const generatedAt = new Date().toISOString();
+    const reportLines = [
+      "BLACKGRID MISSION SUMMARY REPORT",
+      "================================",
+      `Generated At: ${generatedAt}`,
+      `Total Events: ${logs.length}`,
+      `Threat Events: ${threatLogs.length}`,
+      `Critical Events: ${severityCounts.CRITICAL}`,
+      `High Events: ${severityCounts.HIGH}`,
+      "",
+      "Executive Summary",
+      "-----------------",
+      latestLog
+        ? `Latest verdict is ${latestLog.threatLevel} from ${latestLog.source}. Recommended action: ${latestLog.details.recommendedAction}.`
+        : "No events available.",
+      "",
+      "Primary Findings",
+      "----------------",
+      ...(topPatterns.length > 0 ? topPatterns.map(([pattern, count]) => `- ${pattern}: ${count} occurrence(s)`) : ["- No pattern matches recorded."]),
+      "",
+      "Recommended Response Outline",
+      "----------------------------",
+      ...responseOutline.map((item, index) => `${index + 1}. ${item}`),
+      "",
+      "Most Frequent Recommended Actions",
+      "---------------------------------",
+      ...(topActions.length > 0 ? topActions.map(([action, count]) => `- ${action}: ${count}`) : ["- No actions available."]),
+      "",
+      "Recent Timeline",
+      "---------------",
+      ...recentLogs.map((log) => `${log.timestamp} | ${log.threatLevel} | ${log.source} | ${log.activity}`),
+      "",
+      "END OF REPORT",
+    ];
+
+    const blob = new Blob([reportLines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const fileName = `BLACKGRID_SUMMARY_${generatedAt.replace(/[:.]/g, "-")}.txt`;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleEnterPlatform = () => {
     setActiveTab('dashboard');
     setAppView('platform');
@@ -370,6 +512,117 @@ const App: React.FC = () => {
                  ))}
                </div>
              )}
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="flex flex-col h-full p-8 animate-in fade-in duration-500">
+            <div className="flex items-center justify-between mb-6 border-b border-[#262626] pb-4">
+              <div>
+                <h2 className="text-xl font-bold tracking-widest uppercase flex items-center gap-3">
+                  <FileText className="text-blue-500" />
+                  Mission Summary Report
+                </h2>
+                <span className="text-xs font-mono text-[#737373] mt-1 block">
+                  OUTLINE :: FINDINGS :: RESPONSE PLAN :: EXPORTABLE BRIEF
+                </span>
+              </div>
+              <button
+                onClick={handleDownloadSummaryReport}
+                disabled={logs.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-[#171717] border border-[#262626] text-xs font-mono text-blue-400 hover:bg-blue-900/20 hover:border-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download size={14} />
+                DOWNLOAD SUMMARY REPORT
+              </button>
+            </div>
+
+            {logs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 border border-dashed border-[#262626] bg-[#0a0a0a] text-[#525252] font-mono">
+                <FileText size={32} className="mb-4 opacity-50" />
+                <div className="text-sm">NO SUMMARY DATA AVAILABLE</div>
+                <div className="text-xs mt-2">Run analysis in Threat Hunter to generate report content.</div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto pr-2 space-y-5">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="border border-[#262626] bg-[#0a0a0a] p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-[#737373]">Total Events</div>
+                    <div className="text-2xl font-mono font-bold text-white mt-2">{logs.length}</div>
+                  </div>
+                  <div className="border border-[#262626] bg-[#0a0a0a] p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-[#737373]">Threat Events</div>
+                    <div className="text-2xl font-mono font-bold text-red-400 mt-2">{threatLogs.length}</div>
+                  </div>
+                  <div className="border border-[#262626] bg-[#0a0a0a] p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-[#737373]">Critical</div>
+                    <div className="text-2xl font-mono font-bold text-orange-400 mt-2">{severityCounts.CRITICAL}</div>
+                  </div>
+                  <div className="border border-[#262626] bg-[#0a0a0a] p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-[#737373]">Latest Action</div>
+                    <div className="text-xs font-mono font-bold text-blue-400 mt-2 break-words">
+                      {latestLog?.details.recommendedAction || 'NO_ACTION_REQUIRED'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-[#262626] bg-[#0a0a0a] p-5">
+                  <h3 className="text-[10px] uppercase tracking-widest text-[#737373] mb-3">Executive Summary</h3>
+                  <p className="text-sm text-[#d4d4d4] leading-relaxed">
+                    {latestLog
+                      ? `Latest analysis marked ${latestLog.threatLevel} risk from ${latestLog.source}. The engine recorded ${latestLog.details.detectedPatterns.length} artifact matches and recommended ${latestLog.details.recommendedAction}. Current telemetry history contains ${threatLogs.length} threat-classified events out of ${logs.length} total events.`
+                      : 'No telemetry has been analyzed yet.'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div className="border border-[#262626] bg-[#0a0a0a] p-5">
+                    <h3 className="text-[10px] uppercase tracking-widest text-[#737373] mb-3">Findings Outline</h3>
+                    <div className="space-y-2">
+                      {(topPatterns.length > 0
+                        ? topPatterns.map(([pattern, count]) => `${pattern} seen ${count} time(s).`)
+                        : ['No recurring detection patterns found.']
+                      ).map((line, idx) => (
+                        <div key={`${line}-${idx}`} className="flex items-start gap-2 border border-[#262626] bg-[#111] p-2">
+                          <span className="mt-0.5 min-w-5 h-5 flex items-center justify-center border border-[#333] bg-[#171717] text-[10px] font-bold text-blue-400">
+                            {idx + 1}
+                          </span>
+                          <p className="text-xs text-[#d4d4d4]">{line}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border border-[#262626] bg-[#0a0a0a] p-5">
+                    <h3 className="text-[10px] uppercase tracking-widest text-[#737373] mb-3">Recommended Next Steps</h3>
+                    <div className="space-y-2">
+                      {responseOutline.map((step, idx) => (
+                        <div key={`${step}-${idx}`} className="flex items-start gap-2 border border-[#262626] bg-[#111] p-2">
+                          <span className="mt-0.5 min-w-5 h-5 flex items-center justify-center border border-[#333] bg-[#171717] text-[10px] font-bold text-emerald-400">
+                            {idx + 1}
+                          </span>
+                          <p className="text-xs text-[#d4d4d4]">{step}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-[#262626] bg-[#0a0a0a] p-5">
+                  <h3 className="text-[10px] uppercase tracking-widest text-[#737373] mb-3">Recent Detection Timeline</h3>
+                  <div className="space-y-2">
+                    {recentLogs.map((log) => (
+                      <div key={log.id} className="grid grid-cols-12 gap-3 border border-[#262626] bg-[#111] p-2 text-xs font-mono">
+                        <div className="col-span-3 text-[#737373] truncate">{new Date(log.timestamp).toLocaleString()}</div>
+                        <div className="col-span-2 text-orange-400 font-bold">{log.threatLevel}</div>
+                        <div className="col-span-3 text-blue-400 truncate">{log.source}</div>
+                        <div className="col-span-4 text-[#d4d4d4] truncate">{log.activity}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

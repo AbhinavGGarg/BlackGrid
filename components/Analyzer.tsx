@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Play, ShieldCheck, AlertTriangle, Loader2, Search, Crosshair, Zap, Trash2, Download, FileText } from 'lucide-react';
+import { Terminal, Play, ShieldCheck, AlertTriangle, Loader2, Search, Crosshair, Zap, Trash2 } from 'lucide-react';
 import { analyzeThreatLog, generateSimulation } from '../services/gemini';
 import { ThreatAnalysis, AttackVector } from '../types';
 
@@ -182,53 +182,6 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
     setResult(null);
   };
 
-  const handleDownloadReport = () => {
-    if (!result) return;
-
-    const actionSteps = buildActionSteps(result);
-    const reportTimestamp = new Date().toISOString();
-    const report = [
-      "BLACKGRID INCIDENT SUMMARY REPORT",
-      "================================",
-      `Generated At: ${reportTimestamp}`,
-      `Attack Vector: ${selectedVector}`,
-      `Verdict: ${result.isAgenticThreat ? 'THREAT DETECTED' : 'CLEAN TRAFFIC'}`,
-      `Threat Level: ${result.threatLevel}`,
-      `Confidence Score: ${result.confidenceScore.toFixed(1)}%`,
-      `Recommended Action: ${result.recommendedAction}`,
-      `Detection Source: ${result.source || 'NEURAL_ENGINE_V2'}`,
-      "",
-      "Detected Patterns",
-      "-----------------",
-      ...(result.detectedPatterns.length > 0 ? result.detectedPatterns.map((p) => `- ${p}`) : ["- NONE"]),
-      "",
-      "Analysis Summary",
-      "----------------",
-      result.explanation,
-      "",
-      "Immediate Next Steps",
-      "--------------------",
-      ...actionSteps.map((step, idx) => `${idx + 1}. ${step}`),
-      "",
-      "Input Snapshot (truncated)",
-      "--------------------------",
-      input.slice(0, 1200),
-      "",
-      "END OF REPORT",
-    ].join("\n");
-
-    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-    const fileName = `BLACKGRID_REPORT_${reportTimestamp.replace(/[:.]/g, "-")}.txt`;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   const actionSteps = result ? buildActionSteps(result) : [];
 
   return (
@@ -339,44 +292,6 @@ const Analyzer: React.FC<AnalyzerProps> = ({ onAnalysisComplete, apiKey, clearTr
 
         {/* Right: Analysis Result */}
         <div className="w-1/3 flex flex-col gap-4">
-           {result && (
-              <div className="hud-border bg-[#0a0a0a] p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-blue-400" />
-                      <span className="text-[10px] uppercase tracking-widest font-bold text-[#737373]">Summary Report</span>
-                    </div>
-                    <button
-                      onClick={handleDownloadReport}
-                      className="flex items-center gap-2 px-3 py-1.5 border border-[#333] bg-[#171717] text-[10px] uppercase tracking-widest font-bold text-blue-400 hover:border-blue-500/60 hover:bg-blue-900/20 transition-colors"
-                    >
-                      <Download size={11} />
-                      Download Report
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                    <div className="border border-[#262626] bg-[#101010] px-2 py-1.5 text-[#a3a3a3]">
-                      Verdict
-                      <div className={`mt-1 font-bold ${result.isAgenticThreat ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {result.isAgenticThreat ? 'THREAT' : 'CLEAN'}
-                      </div>
-                    </div>
-                    <div className="border border-[#262626] bg-[#101010] px-2 py-1.5 text-[#a3a3a3]">
-                      Confidence
-                      <div className="mt-1 font-bold text-white">{result.confidenceScore.toFixed(0)}%</div>
-                    </div>
-                    <div className="border border-[#262626] bg-[#101010] px-2 py-1.5 text-[#a3a3a3]">
-                      Threat Level
-                      <div className="mt-1 font-bold text-orange-400">{result.threatLevel}</div>
-                    </div>
-                    <div className="border border-[#262626] bg-[#101010] px-2 py-1.5 text-[#a3a3a3]">
-                      Pattern Count
-                      <div className="mt-1 font-bold text-white">{result.detectedPatterns.length}</div>
-                    </div>
-                  </div>
-              </div>
-           )}
-
            {/* Result Card */}
            <div className={`flex-1 hud-border bg-[#0a0a0a] p-0 overflow-hidden flex flex-col ${!result ? 'justify-center items-center' : ''}`}>
               {!result && !isLoading && (

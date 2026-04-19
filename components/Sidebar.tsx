@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, Radar, Terminal, Settings, Cpu, Activity } from 'lucide-react';
+import { LayoutGrid, Radar, Terminal, Settings, Cpu, Activity, FileText } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -12,6 +12,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenSettin
     { id: 'dashboard', label: 'Ops Center', icon: LayoutGrid },
     { id: 'analyzer', label: 'Threat Hunter', icon: Radar },
     { id: 'logs', label: 'Raw Telemetry', icon: Terminal },
+    { id: 'reports', label: 'Summary Report', icon: FileText },
   ];
 
   return (
