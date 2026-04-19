@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Analyzer from './components/Analyzer';
@@ -27,6 +27,32 @@ const App: React.FC = () => {
 
   // State for Expanded Log Details
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  const platformFarStars = useMemo(
+    () =>
+      Array.from({ length: 80 }, (_, i) => ({
+        left: ((i * 41) % 1000) / 10,
+        top: ((i * 83) % 1000) / 10,
+        size: i % 4 === 0 ? 2 : 1,
+        opacity: 0.12 + ((i % 5) * 0.05),
+        duration: 6 + (i % 8) * 0.7,
+        delay: (i % 10) * 0.35,
+      })),
+    []
+  );
+
+  const platformNearStars = useMemo(
+    () =>
+      Array.from({ length: 45 }, (_, i) => ({
+        left: ((i * 57 + 170) % 1000) / 10,
+        top: ((i * 49 + 260) % 1000) / 10,
+        size: i % 5 === 0 ? 2 : 1,
+        opacity: 0.16 + ((i % 4) * 0.06),
+        duration: 5 + (i % 7) * 0.6,
+        delay: (i % 9) * 0.4,
+      })),
+    []
+  );
 
   // --- MOCK HISTORICAL SESSIONS ---
   const HISTORICAL_SESSIONS: SavedSession[] = [
@@ -360,6 +386,42 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen text-[#e5e5e5] overflow-hidden relative bg-[#050505]">
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(255,255,255,0.04),transparent_30%),radial-gradient(circle_at_75%_20%,rgba(42,101,255,0.06),transparent_35%),linear-gradient(to_bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.55))]" />
+        <div className="platform-star-layer far absolute inset-0">
+          {platformFarStars.map((star, idx) => (
+            <span
+              key={`platform-far-${idx}`}
+              className="absolute rounded-full bg-white"
+              style={{
+                left: `${star.left}%`,
+                top: `${star.top}%`,
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                opacity: star.opacity,
+                animation: `blackgrid-platform-star-pulse ${star.duration}s ease-in-out ${star.delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+        <div className="platform-star-layer near absolute inset-0">
+          {platformNearStars.map((star, idx) => (
+            <span
+              key={`platform-near-${idx}`}
+              className="absolute rounded-full bg-white"
+              style={{
+                left: `${star.left}%`,
+                top: `${star.top}%`,
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                opacity: star.opacity,
+                animation: `blackgrid-platform-star-pulse ${star.duration}s ease-in-out ${star.delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
       {/* Sidebar */}
       <Sidebar 
         activeTab={activeTab} 
@@ -824,6 +886,40 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes blackgrid-platform-star-pulse {
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        @keyframes blackgrid-platform-drift-far {
+          0% { transform: translate3d(0, 0, 0); }
+          50% { transform: translate3d(-6px, 8px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
+
+        @keyframes blackgrid-platform-drift-near {
+          0% { transform: translate3d(0, 0, 0); }
+          50% { transform: translate3d(8px, -7px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
+
+        .platform-star-layer.far {
+          animation: blackgrid-platform-drift-far 22s ease-in-out infinite;
+        }
+
+        .platform-star-layer.near {
+          animation: blackgrid-platform-drift-near 17s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .platform-star-layer.far,
+          .platform-star-layer.near {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
