@@ -83,8 +83,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterPlatform }) => {
         <header className="border border-[#262626] bg-[#0a0a0a]/90 px-5 py-4 md:px-6 md:py-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-white border border-[#d4d4d4] flex items-center justify-center">
-                <Cpu size={18} className="text-black" />
+              <div className="w-9 h-9 bg-black border border-white flex items-center justify-center">
+                <Cpu size={18} className="text-white" />
               </div>
               <div>
                 <p className="text-lg font-bold tracking-[0.14em] text-white">BLACKGRID</p>
